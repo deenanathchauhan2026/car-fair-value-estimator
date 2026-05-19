@@ -1,4 +1,7 @@
 import type { ComparableListing, ListingInput } from '@car-value/shared';
+import { config } from '../config.js';
+import { marketCheckClient } from '../api/marketcheck.js';
+import { normalizeMarketCheckListing } from '../api/marketcheckNormalize.js';
 import { getDb } from '../db.js';
 import { scrapeAutoList } from '../scrapers/autolistScraper.js';
 import { scrapeCraigslist } from '../scrapers/craigslistScraper.js';
@@ -32,6 +35,34 @@ export class CompsLookupService {
       const comps = rankAndFilterComparables(vehicle, cachedDb, 8).slice(0, 8);
       cache.set(cacheKey, { expiresAt: Date.now() + TTL_MS, comps, sourcesChecked: [] });
       return { status: 'complete', comps, sourcesChecked: [], freshCount: 0, cachedCount: comps.length };
+    }
+
+    if (config.marketcheck.enabled) {
+      const listings = await marketCheckClient.searchListings({
+        year: vehicle.year,
+        make: vehicle.make,
+        model: vehicle.model,
+        trim: vehicle.trim,
+        vin: input.vin,
+        zip: vehicle.zip,
+        radius: 100,
+        rows: 25
+      });
+      const marketcheckFresh = listings.map((listing) => normalizeMarketCheckListing(listing, vehicle)).filter((comp): comp is ComparableListing => comp !== null);
+      const marketcheckComps = rankAndFilterComparables(vehicle, [...marketcheckFresh, ...cachedDb], 8).slice(0, 8);
+      if (marketcheckComps.length >= 4) {
+        const stats = marketCheckClient.getLastRequestStats();
+        const sourcesChecked: ScraperSource[] = ['marketcheck'];
+        this.storeComps(marketcheckComps);
+        cache.set(cacheKey, { expiresAt: Date.now() + TTL_MS, comps: marketcheckComps, sourcesChecked });
+        return {
+          status: 'complete',
+          comps: marketcheckComps,
+          sourcesChecked,
+          freshCount: stats.fresh ? marketcheckComps.filter((c) => marketcheckFresh.some((f) => f.sourceUrl === c.sourceUrl)).length : 0,
+          cachedCount: stats.cached ? marketcheckComps.length : marketcheckComps.filter((c) => cachedDb.some((f) => f.sourceUrl === c.sourceUrl)).length
+        };
+      }
     }
 
     if (process.env.NODE_ENV === 'test' && process.env.ENABLE_TEST_SCRAPING !== 'true') {
@@ -123,7 +154,7 @@ function rowToComparable(row: Record<string, unknown>): ComparableListing {
 
 function sourceOf(comp: ComparableListing): ScraperSource {
   const source = (comp.rawJson as { source?: ScraperSource } | undefined)?.source;
-  if (source === 'craigslist' || source === 'truecar' || source === 'autolist') return source;
+  if (source === 'craigslist' || source === 'truecar' || source === 'autolist' || source === 'marketcheck') return source;
   return comp.platform === 'craigslist' ? 'craigslist' : 'autolist';
 }
 

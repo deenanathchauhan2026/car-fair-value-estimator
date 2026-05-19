@@ -3,7 +3,7 @@ import { getDb } from '../db.js';
 import { listingRepository } from '../repositories/listingRepository.js';
 import { compsLookupService } from './compsLookupService.js';
 
-export type EstimateKind = 'scraped' | 'local' | 'seed-exact' | 'seed-nearby' | 'listing-fallback';
+export type EstimateKind = 'marketcheck-api' | 'scraped' | 'local' | 'seed-exact' | 'seed-nearby' | 'listing-fallback';
 export type ConfidenceTier = 'high' | 'medium' | 'low-medium' | 'low';
 
 export type ComparableEstimate = {
@@ -40,11 +40,14 @@ export class ComparableService {
   async estimate(listing: ListingInput): Promise<ComparableEstimate> {
     const scraped = await compsLookupService.lookup(listing).catch(() => undefined);
     if (scraped && scraped.comps.length >= 4) {
+      const isMarketCheck = scraped.sourcesChecked.includes('marketcheck');
       return {
         comparables: scraped.comps,
-        estimateKind: 'scraped',
+        estimateKind: isMarketCheck ? 'marketcheck-api' : 'scraped',
         confidenceTier: scraped.comps.length >= 6 ? 'high' : 'medium',
-        estimateSource: `Based on ${scraped.comps.length} fresh comparable listing${scraped.comps.length === 1 ? '' : 's'} from ${scraped.sourcesChecked.join(', ') || 'cached sources'}`
+        estimateSource: isMarketCheck
+          ? `Based on ${scraped.comps.length} comparable listing${scraped.comps.length === 1 ? '' : 's'} from MarketCheck API (${scraped.freshCount} fresh, ${scraped.cachedCount} cached)`
+          : `Based on ${scraped.comps.length} fresh comparable listing${scraped.comps.length === 1 ? '' : 's'} from ${scraped.sourcesChecked.join(', ') || 'cached sources'}`
       };
     }
 

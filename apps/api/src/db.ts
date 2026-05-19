@@ -99,6 +99,23 @@ function migrate(database: Database.Database) {
 
     CREATE INDEX IF NOT EXISTS idx_comparable_listings_vehicle
       ON comparable_listings (lower(make), lower(model), year, last_seen_at);
+
+    CREATE TABLE IF NOT EXISTS api_usage (
+      provider TEXT NOT NULL,
+      period TEXT NOT NULL,
+      count INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (provider, period)
+    );
+
+    CREATE TABLE IF NOT EXISTS api_response_cache (
+      provider TEXT NOT NULL,
+      cache_key TEXT NOT NULL,
+      response_json TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (provider, cache_key)
+    );
   `);
 }
 
