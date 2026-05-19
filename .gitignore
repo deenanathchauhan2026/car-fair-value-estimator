@@ -1,12 +1,12 @@
 node_modules
-dist
+# dist  (committed for unpacked extension - build is the deliverable)
 .env
 .env.local
 coverage
 playwright-report
 test-results
-apps/api/prisma/migrations/*
-!.gitkeep
+*.sqlite
+*.sqlite-*
 .apt-cache
 .apt-lists
 .pw-libs/debs
