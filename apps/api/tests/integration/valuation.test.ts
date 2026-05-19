@@ -19,9 +19,13 @@ afterEach(async () => {
 });
 
 describe('valuation route', () => {
-  it('returns valuation response', async () => {
+  it('loads seed market data and returns source metadata', async () => {
     const { buildApp } = await import('../../src/app.js');
+    const { getDb } = await import('../../src/db.js');
     const app = await buildApp();
+
+    const seedCount = (getDb().prepare('SELECT COUNT(*) AS count FROM market_value_seed').get() as { count: number }).count;
+    expect(seedCount).toBeGreaterThan(1000);
 
     const res = await app.inject({
       method: 'POST',
@@ -33,6 +37,7 @@ describe('valuation route', () => {
           year: 2020,
           make: 'Toyota',
           model: 'Camry',
+          mileage: 42000,
           priceUsd: 21000
         }
       }
@@ -40,6 +45,38 @@ describe('valuation route', () => {
 
     expect(res.statusCode).toBe(200);
     expect(res.json().valuation.fairValueMedian).toBeGreaterThan(0);
+    expect(res.json().estimateSource).toContain('market data');
+    expect(res.json().valuation.estimateSource).toContain('market data');
+    expect(res.json().valuation.confidenceTier).toBe('medium');
+    await app.close();
+  });
+
+  it('returns a seeded estimate for a 2017 Ford Escape around 100k miles', async () => {
+    const { buildApp } = await import('../../src/app.js');
+    const app = await buildApp();
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/valuations',
+      payload: {
+        listing: {
+          platform: 'generic',
+          sourceUrl: 'https://example.com/ford-escape',
+          year: 2017,
+          make: 'Ford',
+          model: 'Escape',
+          mileage: 101500,
+          priceUsd: 9200
+        }
+      }
+    });
+
+    const body = res.json();
+    expect(res.statusCode).toBe(200);
+    expect(body.valuation.fairValueMedian).toBeGreaterThan(0);
+    expect(body.valuation.comparableCount).toBe(1);
+    expect(body.valuation.confidenceTier).toBe('medium');
+    expect(body.valuation.metadata.method).toBe('seed-exact');
     await app.close();
   });
 });

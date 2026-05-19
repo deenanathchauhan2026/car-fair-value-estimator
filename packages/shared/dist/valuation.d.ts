@@ -5,6 +5,7 @@ export interface ComparableListing extends ListingInput {
     similarityScore?: number;
     listedAt?: string;
 }
+export type ConfidenceTier = 'high' | 'medium' | 'low-medium' | 'low';
 export interface ValuationResult {
     id: string;
     listingId: string;
@@ -12,9 +13,11 @@ export interface ValuationResult {
     fairValueHigh: number;
     fairValueMedian: number;
     confidenceScore: number;
+    confidenceTier?: ConfidenceTier;
     comparableCount: number;
     comparables: ComparableListing[];
     metadata: Record<string, unknown>;
+    estimateSource?: string;
     createdAt: string;
 }
 export interface ValuationRequest {
@@ -26,4 +29,5 @@ export interface ValuationResponse {
     };
     valuation: ValuationResult;
     marketPosition: 'below' | 'at' | 'above' | 'unknown';
+    estimateSource?: string;
 }
