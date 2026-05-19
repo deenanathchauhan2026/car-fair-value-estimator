@@ -1,8 +1,9 @@
 import type { ComparableListing, ListingInput } from '@car-value/shared';
 import { getDb } from '../db.js';
 import { listingRepository } from '../repositories/listingRepository.js';
+import { compsLookupService } from './compsLookupService.js';
 
-export type EstimateKind = 'local' | 'seed-exact' | 'seed-nearby' | 'listing-fallback';
+export type EstimateKind = 'scraped' | 'local' | 'seed-exact' | 'seed-nearby' | 'listing-fallback';
 export type ConfidenceTier = 'high' | 'medium' | 'low-medium' | 'low';
 
 export type ComparableEstimate = {
@@ -37,6 +38,16 @@ export class ComparableService {
   }
 
   async estimate(listing: ListingInput): Promise<ComparableEstimate> {
+    const scraped = await compsLookupService.lookup(listing).catch(() => undefined);
+    if (scraped && scraped.comps.length >= 4) {
+      return {
+        comparables: scraped.comps,
+        estimateKind: 'scraped',
+        confidenceTier: scraped.comps.length >= 6 ? 'high' : 'medium',
+        estimateSource: `Based on ${scraped.comps.length} fresh comparable listing${scraped.comps.length === 1 ? '' : 's'} from ${scraped.sourcesChecked.join(', ') || 'cached sources'}`
+      };
+    }
+
     const localComparables = await this.findLocalExactComparables(listing);
     if (localComparables.length > 0) {
       return {

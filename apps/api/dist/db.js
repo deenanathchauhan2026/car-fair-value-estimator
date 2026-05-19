@@ -75,6 +75,26 @@ function migrate(database) {
 
     CREATE INDEX IF NOT EXISTS idx_seed_vehicle ON market_value_seed(make, model, year);
     CREATE INDEX IF NOT EXISTS idx_seed_mileage ON market_value_seed(make, model, year, mileage_min, mileage_max);
+
+    CREATE TABLE IF NOT EXISTS comparable_listings (
+      id TEXT PRIMARY KEY,
+      source TEXT NOT NULL,
+      source_url TEXT,
+      year INTEGER,
+      make TEXT,
+      model TEXT,
+      trim TEXT,
+      mileage REAL,
+      price REAL NOT NULL,
+      location TEXT,
+      zip TEXT,
+      first_seen_at TEXT DEFAULT (datetime('now')),
+      last_seen_at TEXT DEFAULT (datetime('now')),
+      raw_payload TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_comparable_listings_vehicle
+      ON comparable_listings (lower(make), lower(model), year, last_seen_at);
   `);
 }
 function seedMarketValues(database) {

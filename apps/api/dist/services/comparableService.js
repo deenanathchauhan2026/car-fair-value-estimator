@@ -1,10 +1,20 @@
 import { getDb } from '../db.js';
 import { listingRepository } from '../repositories/listingRepository.js';
+import { compsLookupService } from './compsLookupService.js';
 export class ComparableService {
     async find(listing) {
         return (await this.estimate(listing)).comparables;
     }
     async estimate(listing) {
+        const scraped = await compsLookupService.lookup(listing).catch(() => undefined);
+        if (scraped && scraped.comps.length >= 4) {
+            return {
+                comparables: scraped.comps,
+                estimateKind: 'scraped',
+                confidenceTier: scraped.comps.length >= 6 ? 'high' : 'medium',
+                estimateSource: `Based on ${scraped.comps.length} fresh comparable listing${scraped.comps.length === 1 ? '' : 's'} from ${scraped.sourcesChecked.join(', ') || 'cached sources'}`
+            };
+        }
         const localComparables = await this.findLocalExactComparables(listing);
         if (localComparables.length > 0) {
             return {

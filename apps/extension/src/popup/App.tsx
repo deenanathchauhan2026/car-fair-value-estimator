@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { AlertCircle, Database, DollarSign, RefreshCw, TrendingUp } from 'lucide-react';
 import type { ExtensionMessage } from '../shared/messages';
-import type { ListingInput, ValuationResponse } from '../shared/types';
+import type { ListingInput, ValuationResponse, ComparableListing } from '../shared/types';
+import { API_BASE_URL } from '../shared/constants';
 import ListingSummary from './components/ListingSummary';
 import ConfidenceMeter from './components/ConfidenceMeter';
 import ComparableTable from './components/ComparableTable';
@@ -21,6 +22,8 @@ export default function App() {
   const [listing, setListing] = useState<ListingInput | null>(null);
   const [result, setResult] = useState<ValuationResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  const [compsLoading, setCompsLoading] = useState(false);
+  const [scrapedComps, setScrapedComps] = useState<ComparableListing[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const extract = async () => {
@@ -29,8 +32,11 @@ export default function App() {
     setResult(null);
     try {
       const res = await send<ExtensionMessage>({ type: 'EXTRACT_LISTING' });
-      if (res.type === 'LISTING_EXTRACTED') setListing(res.listing);
-      else if (res.type === 'VALUATION_ERROR') setError(res.error);
+      if (res.type === 'LISTING_EXTRACTED') {
+        setListing(res.listing);
+        setScrapedComps(null);
+        if (res.listing) void lookupComps(res.listing);
+      } else if (res.type === 'VALUATION_ERROR') setError(res.error);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not extract listing');
     } finally {
@@ -41,6 +47,24 @@ export default function App() {
   useEffect(() => {
     void extract();
   }, []);
+
+  const lookupComps = async (nextListing: ListingInput) => {
+    setCompsLoading(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/comps/lookup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(nextListing)
+      });
+      if (!res.ok) throw new Error(`Comps API error ${res.status}`);
+      const data = (await res.json()) as { comps: ComparableListing[] };
+      setScrapedComps(data.comps);
+    } catch {
+      setScrapedComps([]);
+    } finally {
+      setCompsLoading(false);
+    }
+  };
 
   const estimate = async () => {
     if (!listing) return;
@@ -79,6 +103,13 @@ export default function App() {
       <button className="btn" onClick={estimate} disabled={!listing || loading}>
         <DollarSign size={16} /> Estimate Fair Value
       </button>
+
+      {listing && !result && (
+        <section className="card">
+          <h3>Comparable listings</h3>
+          {compsLoading ? <p className="muted">Finding comparable listings...</p> : <ComparableTable comps={scrapedComps ?? []} />}
+        </section>
+      )}
 
       {result && (
         <section className="card">
