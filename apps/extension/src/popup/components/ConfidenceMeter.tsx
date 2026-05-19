@@ -1,0 +1,1 @@
+export default function ConfidenceMeter({ score }: { score: number }) { const pct = Math.round(score*100); return <div><div style={{display:'flex',justifyContent:'space-between'}}><span>Confidence</span><b>{pct}%</b></div><div className="bar"><div style={{width:`${pct}%`}} /></div></div>; }

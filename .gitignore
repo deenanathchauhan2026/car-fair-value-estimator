@@ -1,0 +1,13 @@
+node_modules
+dist
+.env
+.env.local
+coverage
+playwright-report
+test-results
+apps/api/prisma/migrations/*
+!.gitkeep
+.apt-cache
+.apt-lists
+.pw-libs/debs
+apps/api/tests/**/*.js

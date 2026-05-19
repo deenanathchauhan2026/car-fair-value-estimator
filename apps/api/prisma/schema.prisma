@@ -1,0 +1,40 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+model Listing {
+  id String @id @default(uuid())
+  platform String
+  sourceUrl String
+  title String?
+  priceUsd Float?
+  year Int?
+  make String?
+  model String?
+  trim String?
+  mileage Float?
+  vin String?
+  location String?
+  condition String?
+  sellerType String?
+  rawJson Json?
+  createdAt DateTime @default(now())
+  valuations Valuation[]
+}
+model Valuation {
+  id String @id @default(uuid())
+  listingId String
+  fairValueLow Float
+  fairValueHigh Float
+  fairValueMedian Float
+  confidenceScore Float
+  comparableCount Int
+  comparables Json
+  metadata Json
+  createdAt DateTime @default(now())
+  listing Listing @relation(fields: [listingId], references: [id])
+}

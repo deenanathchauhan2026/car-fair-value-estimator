@@ -1,0 +1,1 @@
+export default function FairValueBadge({ pos }: { pos: string }) { const label = pos === 'below' ? 'Below market' : pos === 'above' ? 'Above market' : pos === 'at' ? 'At market' : 'Unknown'; return <span className={`badge ${pos}`}>{label}</span>; }
