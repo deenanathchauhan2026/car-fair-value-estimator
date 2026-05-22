@@ -1,4 +1,4 @@
-export const platforms = ['facebook_marketplace','autotrader','cargurus','craigslist','generic'] as const;
+export const platforms = ['facebook_marketplace','autotrader','cargurus','craigslist','cars_com','generic'] as const;
 export type Platform = typeof platforms[number];
 export function platformFromUrl(url: string): Platform {
   const host = new URL(url).hostname.toLowerCase();
@@ -6,5 +6,6 @@ export function platformFromUrl(url: string): Platform {
   if (host.includes('autotrader.')) return 'autotrader';
   if (host.includes('cargurus.')) return 'cargurus';
   if (host.includes('craigslist.')) return 'craigslist';
+  if (host.includes('cars.com')) return 'cars_com';
   return 'generic';
 }
