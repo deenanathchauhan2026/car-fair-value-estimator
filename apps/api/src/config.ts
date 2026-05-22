@@ -21,5 +21,8 @@ export const config = {
     baseUrl: process.env.MARKETCHECK_BASE_URL ?? 'https://api.marketcheck.com',
     monthlyLimit: Number(process.env.MARKETCHECK_MONTHLY_LIMIT ?? 500),
     cacheTtlHours: Number(process.env.MARKETCHECK_CACHE_TTL_HOURS ?? 24)
+  },
+  nhtsaVpic: {
+    cacheTtlHours: Number(process.env.NHTSA_VPIC_CACHE_TTL_HOURS ?? 720)
   }
 };

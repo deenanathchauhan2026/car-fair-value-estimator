@@ -6,10 +6,24 @@ import { normalizationService } from './normalizationService.js';
 import { scoringService } from './scoringService.js';
 import { listingRepository } from '../repositories/listingRepository.js';
 import { valuationRepository } from '../repositories/valuationRepository.js';
+import { nhtsaVpicClient } from '../api/nhtsaVpic.js';
 
 export class ValuationService {
   async value(input: ListingInput): Promise<ValuationResponse> {
-    const listingInput = normalizationService.normalize(input);
+    const normalizedInput = normalizationService.normalize(input);
+    const decoded = normalizedInput.vin && (!normalizedInput.make || !normalizedInput.model || !normalizedInput.year)
+      ? await nhtsaVpicClient.decodeVin(normalizedInput.vin)
+      : undefined;
+    const listingInput = decoded
+      ? {
+          ...normalizedInput,
+          year: normalizedInput.year ?? decoded.year,
+          make: normalizedInput.make ?? decoded.make,
+          model: normalizedInput.model ?? decoded.model,
+          trim: normalizedInput.trim ?? decoded.trim,
+          rawJson: { ...(typeof normalizedInput.rawJson === 'object' && normalizedInput.rawJson !== null ? normalizedInput.rawJson : {}), vinDecoded: true, vinDecodeProvider: 'nhtsa-vpic' }
+        }
+      : normalizedInput;
     let listing: { id: string };
     try {
       listing = await listingRepository.create(listingInput);
@@ -37,7 +51,9 @@ export class ValuationService {
         method: estimate.estimateKind,
         confidenceTier: estimate.confidenceTier,
         estimateSource: estimate.estimateSource,
-        generatedFromFallback: estimate.estimateKind === 'listing-fallback'
+        generatedFromFallback: estimate.estimateKind === 'listing-fallback',
+        vinDecoded: Boolean(decoded),
+        vinDecodeProvider: decoded ? 'nhtsa-vpic' : undefined
       }
     };
 
