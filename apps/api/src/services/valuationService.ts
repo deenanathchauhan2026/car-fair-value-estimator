@@ -7,6 +7,7 @@ import { scoringService } from './scoringService.js';
 import { listingRepository } from '../repositories/listingRepository.js';
 import { valuationRepository } from '../repositories/valuationRepository.js';
 import { nhtsaVpicClient } from '../api/nhtsaVpic.js';
+import { comparableListingRepository } from '../repositories/comparableListingRepository.js';
 
 export class ValuationService {
   async value(input: ListingInput): Promise<ValuationResponse> {
@@ -31,6 +32,10 @@ export class ValuationService {
       listing = { id: crypto.randomUUID() };
     }
 
+    try {
+      comparableListingRepository.upsertFromListing(listingInput);
+    } catch {}
+
     const estimate = await comparableService.estimate(listingInput);
     const comps = estimate.comparables;
     const prices = comps.map((c) => c.priceUsd).filter((p): p is number => typeof p === 'number' && p > 0);
@@ -51,6 +56,7 @@ export class ValuationService {
         method: estimate.estimateKind,
         confidenceTier: estimate.confidenceTier,
         estimateSource: estimate.estimateSource,
+        comparableSource: 'cached-dom',
         generatedFromFallback: estimate.estimateKind === 'listing-fallback',
         vinDecoded: Boolean(decoded),
         vinDecodeProvider: decoded ? 'nhtsa-vpic' : undefined
@@ -71,6 +77,10 @@ export class ValuationService {
         ...valuation,
         estimateSource: estimate.estimateSource,
         confidenceTier: estimate.confidenceTier,
+        method: estimate.estimateKind,
+        vinDecoded: Boolean(decoded),
+        vinDecodeProvider: decoded ? 'nhtsa-vpic' : undefined,
+        comparableSource: 'cached-dom',
         createdAt: valuation.createdAt.toISOString?.() ?? valuation.createdAt
       },
       marketPosition,

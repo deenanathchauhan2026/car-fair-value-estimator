@@ -84,10 +84,20 @@ function migrate(database: Database.Database) {
       id TEXT PRIMARY KEY,
       source TEXT NOT NULL,
       source_url TEXT,
+      title TEXT,
+      platform TEXT,
+      vin TEXT,
+      condition TEXT,
+      seller_type TEXT,
+      listed_at TEXT,
+      domain TEXT,
       year INTEGER,
       make TEXT,
       model TEXT,
       trim TEXT,
+      normalized_make TEXT,
+      normalized_model TEXT,
+      normalized_trim TEXT,
       mileage REAL,
       price REAL NOT NULL,
       location TEXT,
@@ -97,8 +107,12 @@ function migrate(database: Database.Database) {
       raw_payload TEXT
     );
 
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_comparable_listings_source_url_unique
+      ON comparable_listings(source_url)
+      WHERE source_url IS NOT NULL;
+
     CREATE INDEX IF NOT EXISTS idx_comparable_listings_vehicle
-      ON comparable_listings (lower(make), lower(model), year, last_seen_at);
+      ON comparable_listings (normalized_make, normalized_model, year, last_seen_at);
 
     CREATE TABLE IF NOT EXISTS api_usage (
       provider TEXT NOT NULL,
@@ -117,6 +131,21 @@ function migrate(database: Database.Database) {
       PRIMARY KEY (provider, cache_key)
     );
   `);
+
+  for (const statement of [
+    'ALTER TABLE comparable_listings ADD COLUMN title TEXT',
+    'ALTER TABLE comparable_listings ADD COLUMN platform TEXT',
+    'ALTER TABLE comparable_listings ADD COLUMN vin TEXT',
+    'ALTER TABLE comparable_listings ADD COLUMN condition TEXT',
+    'ALTER TABLE comparable_listings ADD COLUMN seller_type TEXT',
+    'ALTER TABLE comparable_listings ADD COLUMN listed_at TEXT',
+    'ALTER TABLE comparable_listings ADD COLUMN domain TEXT',
+    'ALTER TABLE comparable_listings ADD COLUMN normalized_make TEXT',
+    'ALTER TABLE comparable_listings ADD COLUMN normalized_model TEXT',
+    'ALTER TABLE comparable_listings ADD COLUMN normalized_trim TEXT'
+  ]) {
+    try { database.exec(statement); } catch {}
+  }
 }
 
 function seedMarketValues(database: Database.Database) {

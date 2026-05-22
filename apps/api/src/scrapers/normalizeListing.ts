@@ -1,6 +1,6 @@
 import type { ComparableListing, ListingInput } from '@car-value/shared';
 
-export type ScraperSource = 'craigslist' | 'truecar' | 'autolist' | 'marketcheck';
+export type ScraperSource = 'craigslist' | 'truecar' | 'autolist';
 export type NormalizedVehicle = Pick<ListingInput, 'year' | 'make' | 'model' | 'trim' | 'mileage' | 'location'> & { zip?: string; sourceUrl?: string; priceUsd?: number };
 export type ScrapedComparable = ComparableListing & { source: ScraperSource; zip?: string };
 
@@ -101,7 +101,7 @@ export function decodeHtml(value: string): string {
 function absolutize(url: string | undefined, source: ScraperSource): string | undefined {
   if (!url) return undefined;
   try { return new URL(url).toString(); } catch {}
-  const base = source === 'craigslist' ? 'https://craigslist.org' : source === 'truecar' ? 'https://www.truecar.com' : source === 'autolist' ? 'https://www.autolist.com' : 'https://api.marketcheck.com';
+  const base = source === 'craigslist' ? 'https://craigslist.org' : source === 'truecar' ? 'https://www.truecar.com' : 'https://www.autolist.com';
   try { return new URL(url, base).toString(); } catch { return undefined; }
 }
 

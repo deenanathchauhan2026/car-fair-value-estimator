@@ -8,7 +8,6 @@ let tempDir: string;
 beforeEach(() => {
   tempDir = mkdtempSync(join(tmpdir(), 'car-value-comps-route-'));
   process.env.DATABASE_PATH = join(tempDir, 'test.sqlite');
-  process.env.ENABLE_TEST_SCRAPING = 'true';
   vi.resetModules();
 });
 
@@ -17,24 +16,29 @@ afterEach(async () => {
   closeDb();
   vi.unstubAllGlobals();
   delete process.env.DATABASE_PATH;
-  delete process.env.ENABLE_TEST_SCRAPING;
   rmSync(tempDir, { recursive: true, force: true });
 });
 
 describe('/api/comps/lookup', () => {
-  it('scrapes once per source, ranks comps, and uses in-memory cache', async () => {
-    const html = `<li class="cl-static-search-result"><a href="https://newyork.craigslist.org/cto/d/camry/1.html"><div class="title">2020 Toyota Camry SE</div><div class="price">$21,500</div><div class="location">New York</div><span>41,000 miles</span></a></li>
-      <li class="cl-static-search-result"><a href="https://newyork.craigslist.org/cto/d/camry/2.html"><div class="title">2020 Toyota Camry LE</div><div class="price">$20,500</div><div class="location">New York</div><span>45,000 miles</span></a></li>`;
-    const truecarPayload = { props: { pageProps: { listings: [
-      { url: '/used-cars-for-sale/listing/a/', year: 2020, make: 'Toyota', model: 'Camry', trim: 'SE', listPrice: 22500, mileage: 40000 },
-      { url: '/used-cars-for-sale/listing/b/', year: 2020, make: 'Toyota', model: 'Camry', trim: 'XSE', listPrice: 23000, mileage: 38000 }
-    ] } } };
-    const autolist = `<script>window.__AUTOLIST__ = {"listings":[{"url":"/listings/1","year":2020,"make":"Toyota","model":"Camry","trim":"SE","price":21000,"mileage":42000},{"url":"/listings/2","year":2020,"make":"Toyota","model":"Camry","trim":"LE","price":20000,"mileage":46000}]};</script>`;
-    const fetchMock = vi.fn()
-      .mockResolvedValueOnce(new Response(html, { status: 200 }))
-      .mockResolvedValueOnce(new Response(`<script id="__NEXT_DATA__" type="application/json">${JSON.stringify(truecarPayload)}</script>`, { status: 200 }))
-      .mockResolvedValueOnce(new Response(autolist, { status: 200 }));
+  it('returns ranked cached DOM comparables and uses in-memory cache', async () => {
+    const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
+    const { comparableListingRepository } = await import('../../src/repositories/comparableListingRepository.js');
+    for (const [idx, price] of [21500, 20500, 22500, 23000, 21000].entries()) {
+      comparableListingRepository.upsertFromListing({
+        platform: 'craigslist',
+        sourceUrl: `https://newyork.craigslist.org/cto/d/camry/${idx}.html`,
+        title: `2020 Toyota Camry ${idx}`,
+        year: 2020,
+        make: 'Toyota',
+        model: 'Camry',
+        trim: idx % 2 ? 'LE' : 'SE',
+        mileage: 41000 + idx * 1000,
+        priceUsd: price,
+        location: 'New York',
+        rawJson: { source: 'test' }
+      });
+    }
 
     const { buildApp } = await import('../../src/app.js');
     const app = await buildApp();
@@ -44,13 +48,14 @@ describe('/api/comps/lookup', () => {
 
     expect(res.statusCode).toBe(200);
     expect(body.status).toBe('complete');
-    expect(body.sourcesChecked).toEqual(['craigslist', 'truecar', 'autolist']);
+    expect(body.sourcesChecked).toEqual(['cached-dom']);
     expect(body.comps.length).toBeGreaterThanOrEqual(4);
-    expect(body.freshCount).toBeGreaterThanOrEqual(4);
+    expect(body.freshCount).toBe(0);
+    expect(body.cachedCount).toBe(body.comps.length);
 
     const cached = await app.inject({ method: 'POST', url: '/api/comps/lookup', payload });
     expect(cached.json().cachedCount).toBe(body.comps.length);
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).not.toHaveBeenCalled();
     await app.close();
   });
 });
