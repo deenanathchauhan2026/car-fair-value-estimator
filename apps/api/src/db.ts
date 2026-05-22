@@ -107,10 +107,6 @@ function migrate(database: Database.Database) {
       raw_payload TEXT
     );
 
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_comparable_listings_source_url_unique
-      ON comparable_listings(source_url)
-      WHERE source_url IS NOT NULL;
-
     CREATE INDEX IF NOT EXISTS idx_comparable_listings_vehicle
       ON comparable_listings (normalized_make, normalized_model, year, last_seen_at);
 
@@ -146,6 +142,17 @@ function migrate(database: Database.Database) {
   ]) {
     try { database.exec(statement); } catch {}
   }
+
+  database.exec(`
+    DELETE FROM comparable_listings
+    WHERE source_url IS NOT NULL
+      AND rowid NOT IN (SELECT MIN(rowid) FROM comparable_listings WHERE source_url IS NOT NULL GROUP BY source_url)
+  `);
+  database.exec(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_comparable_listings_source_url_unique
+      ON comparable_listings(source_url)
+      WHERE source_url IS NOT NULL
+  `);
 }
 
 function seedMarketValues(database: Database.Database) {
